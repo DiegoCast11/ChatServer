@@ -1,5 +1,6 @@
 import socket
 import threading
+import struct
 
 host = '0.0.0.0'
 port = 55555
@@ -30,10 +31,8 @@ def handle_messages(client):
                 sender_username = usernames[clients.index(client)]
                 recipient_client.send(f"(Private) {sender_username}: {private_message}".encode('utf-8'))
             elif decoded_message.startswith("/send"):
-                file_name = decoded_message.split(' ')[1]
-                client.send(f"Sending file '{file_name}'".encode('utf-8'))
-                receive_file(client, file_name)
-                broadcast_file(file_name, client)
+                receive_file(client,"file.txt")
+                print("File received")
 
             else:
                 sender_username = usernames[clients.index(client)]
@@ -47,21 +46,6 @@ def handle_messages(client):
             usernames.remove(username)
             client.close()
             break
-
-def broadcast_file(file_name,_client):
-    try:
-        with open(file_name, 'rb') as file:
-            file_data = file.read(5 * 1024 * 1024)
-        message = f"File {file_name}"
-        for client in clients:
-            if client != _client:
-                chunk_size = 1024
-                for i in range (0, len(file_data), chunk_size):
-                    chunk = file_data[i:i+chunk_size]
-                    client.send(chunk)
-        print(f"File '{file_name}' broadcasted to all clients")
-    except Exception as e:
-        print("An error occurred:", e)
 
 def receive_connections():
     while True:
@@ -82,17 +66,27 @@ def receive_connections():
         thread = threading.Thread(target=handle_messages, args=(client,))
         thread.start()
 
-def receive_file(client, file_name):
-    try:
-        file_data = client.recv(5 * 1024 * 1024)
-        with open(file_name, 'wb') as file:
-            while True:
-                chunk = client.recv(1024)
-                if not chunk:
-                    break
+def receive_file_size(client):
+    fmt = "<Q"
+    expected_bytes = struct.calcsize(fmt)
+    received_bytes = 0
+    stream = bytes()
+    while received_bytes < expected_bytes:
+        chunk = client.recv(expected_bytes - received_bytes)
+        stream += chunk
+        received_bytes += len(chunk)
+        filesize = struct.unpack(fmt, stream)[0]
+        return filesize
+
+def receive_file(client, filename):
+    filesize = receive_file_size(client)
+    with open(filename, 'wb') as file:
+        received_bytes = 0
+        while received_bytes < filesize:
+            chunk = client.recv(1024)
+            if chunk:
                 file.write(chunk)
-        print(f"File '{file_name}' received")
-    except Exception as e:
-        print("An error occurred:", e)
+                received_bytes += len(chunk)
+
 
 receive_connections()
