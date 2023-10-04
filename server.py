@@ -47,6 +47,7 @@ def handle_messages(client):
             usernames.remove(username)
             client.close()
             break
+
 def broadcast_file(file_name):
     try:
         with open(file_name, 'rb') as file:
