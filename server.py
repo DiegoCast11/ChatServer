@@ -33,7 +33,7 @@ def handle_messages(client):
                 file_name = decoded_message.split(' ')[1]
                 client.send(f"Sending file '{file_name}'".encode('utf-8'))
                 receive_file(client, file_name)
-                broadcast_file(file_name)
+                broadcast_file(file_name, client)
 
             else:
                 sender_username = usernames[clients.index(client)]
@@ -48,14 +48,17 @@ def handle_messages(client):
             client.close()
             break
 
-def broadcast_file(file_name):
+def broadcast_file(file_name,_client):
     try:
         with open(file_name, 'rb') as file:
             file_data = file.read(5 * 1024 * 1024)
-        message = f"File {file_name}".encode('utf-8')
+        message = f"File {file_name}"
         for client in clients:
-            client.send(message)
-            client.send(file_data)
+            if client != _client:
+                chunk_size = 1024
+                for i in range (0, len(file_data), chunk_size):
+                    chunk = file_data[i:i+chunk_size]
+                    client.send(chunk)
         print(f"File '{file_name}' broadcasted to all clients")
     except Exception as e:
         print("An error occurred:", e)
@@ -83,7 +86,11 @@ def receive_file(client, file_name):
     try:
         file_data = client.recv(5 * 1024 * 1024)
         with open(file_name, 'wb') as file:
-            file.write(file_data)
+            while True:
+                chunk = client.recv(1024)
+                if not chunk:
+                    break
+                file.write(chunk)
         print(f"File '{file_name}' received")
     except Exception as e:
         print("An error occurred:", e)
