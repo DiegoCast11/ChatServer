@@ -1,6 +1,7 @@
 import socket
 import threading
-import struct
+import struct 
+import os
 
 host = '0.0.0.0'
 port = 55555
